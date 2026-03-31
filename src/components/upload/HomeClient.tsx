@@ -14,6 +14,7 @@ import { UploadZone } from './UploadZone';
 import { GitHubUrlInput } from './GitHubUrlInput';
 import { ProjectInfoPanel } from './ProjectInfoPanel';
 import { SystemLogs } from './SystemLogs';
+import { AnalysisOverlay } from './AnalysisOverlay';
 import type { ProjectFile } from '@/types/project';
 
 /** 입력 방식 탭 */
@@ -68,8 +69,10 @@ export function HomeClient() {
           />
         </div>
 
-        {/* 탭별 입력 영역 */}
-        {activeTab === 'file' ? (
+        {/* 분석 중이면 오버레이, 아니면 탭별 입력 영역 */}
+        {analysis.isAnalyzing ? (
+          <AnalysisOverlay isActive={true} />
+        ) : activeTab === 'file' ? (
           <UploadZone
             isDragging={upload.isDragging}
             status={upload.status}

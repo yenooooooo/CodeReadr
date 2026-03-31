@@ -69,15 +69,13 @@ export function useProjectAnalysis(): UseProjectAnalysisReturn {
     addLog('START', `Analyzing ${files.length} files...`);
 
     try {
-      // 1단계: 프로젝트 구조 분석
-      addLog('SCAN', 'Running project structure analysis...');
-      const structure = await callGeminiJSON<ProjectStructure>(buildStep1Prompt(files));
-      addLog('OK', 'Project structure analysis complete.');
-
-      // 2단계: 기술 스택 식별
-      addLog('SCAN', 'Identifying tech stack...');
-      const techResult = await callGeminiJSON<{ techStack: TechStack[] }>(buildStep2Prompt(files));
-      addLog('OK', `Identified ${techResult.techStack.length} technologies.`);
+      // 1단계 + 2단계 병렬 실행 (순차 대비 ~50% 시간 절약)
+      addLog('SCAN', 'Running structure + tech stack analysis in parallel...');
+      const [structure, techResult] = await Promise.all([
+        callGeminiJSON<ProjectStructure>(buildStep1Prompt(files)),
+        callGeminiJSON<{ techStack: TechStack[] }>(buildStep2Prompt(files)),
+      ]);
+      addLog('OK', `Structure complete. Identified ${techResult.techStack.length} technologies.`);
 
       // localStorage에 저장
       const project: StoredProject = {
