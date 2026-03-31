@@ -9,6 +9,22 @@ import type { ProjectFile } from '@/types/project';
 import { SUPPORTED_EXTENSIONS } from '@/constants';
 
 /**
+ * codeload.github.com에서 zip을 다운로드한다.
+ * main 브랜치 실패 시 master로 자동 재시도한다.
+ * API rate limit과 무관한 직접 다운로드 URL을 사용한다.
+ */
+async function fetchZipWithFallback(owner: string, repo: string): Promise<Response> {
+  // main 브랜치 먼저 시도
+  const mainUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/main`;
+  const mainResp = await fetch(mainUrl);
+  if (mainResp.ok) return mainResp;
+
+  // main 실패 시 master로 재시도
+  const masterUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/master`;
+  return fetch(masterUrl);
+}
+
+/**
  * 파일 경로가 지원되는 코드 파일인지 확인한다.
  * @param path - 파일 경로
  */
@@ -42,12 +58,9 @@ export async function fetchRepoAsZip(
   repo: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<ProjectFile[]> {
-  // GitHub zipball API — 레포 전체를 zip으로 다운로드 (API 1회)
-  const url = `https://api.github.com/repos/${owner}/${repo}/zipball`;
-
-  const response = await fetch(url, {
-    headers: { Accept: 'application/vnd.github.v3+json' },
-  });
+  // codeload.github.com — API rate limit을 우회하는 직접 다운로드 URL
+  // main 브랜치 시도 → 실패 시 master로 재시도
+  const response = await fetchZipWithFallback(owner, repo);
 
   if (!response.ok) {
     throw new Error(
