@@ -15,7 +15,11 @@
       "Bash(grep:*)",
       "Bash(for file:*)",
       "Bash(do if:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{size_download}\" http://localhost:3001)",
+      "Bash(curl:*)",
+      "Read(//tmp/**)"
     ]
   }
 }
