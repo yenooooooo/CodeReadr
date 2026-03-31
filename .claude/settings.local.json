@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Read(//c/Users/ailee/github/**)",
+      "Bash(npx create-next-app@latest code-readr-temp --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(rm -rf code-readr-temp)",
+      "Bash(printf nnnn:*)",
+      "Bash(npx create-next-app@latest code-readr-temp --yes --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(cp -r code-readr-temp/. CodeReadr/)",
+      "Bash(npx shadcn@latest init -d --yes)"
+    ]
+  }
+}
