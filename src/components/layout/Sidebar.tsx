@@ -9,8 +9,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LEARNING_STEPS } from '@/constants';
+import { usePathname, useRouter } from 'next/navigation';
+import { LEARNING_STEPS, STORAGE_KEYS } from '@/constants';
 import {
   SidebarLink, SidebarIcon, UploadIcon, RoadmapIcon, TerminalIcon,
 } from './SidebarIcons';
@@ -34,6 +34,21 @@ const STEP_ICONS: Record<number, string> = {
 /** 사이드바 네비게이션 컴포넌트 */
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  /** 프로젝트 리셋 — localStorage 전체 정리 후 메인으로 이동 */
+  const handleReset = () => {
+    if (!confirm('현재 프로젝트 데이터와 학습 진행률이 모두 삭제됩니다. 계속할까요?')) return;
+    // codereadr_ 접두사 키 전부 삭제
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('codereadr_')) keysToRemove.push(key);
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+    router.push('/');
+    router.refresh();
+  };
 
   return (
     <aside className="hidden md:flex bg-surface w-64 h-full flex-col py-4 space-y-1 border-r border-outline-variant/50 shrink-0">
@@ -80,8 +95,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* 하단: 엔지니어 프로필 */}
-      <div className="px-6 py-4 mt-auto border-t border-outline-variant/30">
+      {/* 하단: 리셋 버튼 + 프로필 */}
+      <div className="px-4 py-4 mt-auto border-t border-outline-variant/30 space-y-3">
+        <button
+          onClick={handleReset}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-outline-variant/50 text-[10px] font-mono uppercase tracking-widest text-outline hover:bg-surface-container-high hover:text-error-red transition-colors"
+        >
+          New Project
+        </button>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-surface-container-high border border-outline-variant/50 flex items-center justify-center">
             <TerminalIcon />

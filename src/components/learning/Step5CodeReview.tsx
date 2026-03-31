@@ -1,29 +1,36 @@
-/**
- * 5단계: 코드 리뷰 훈련 컴포넌트
- * 문제 코드 + 3단계 힌트 시스템 + 리뷰 입력 + before/after 비교.
- */
-
+/** 5단계: 코드 리뷰 훈련 — 학습 파일 기반, 힌트 + before/after 비교 */
 'use client';
 
-import { useState } from 'react';
-import type { StoredProject } from '@/types/project';
+import { useState, useEffect } from 'react';
+import type { StoredProject, ProjectFile } from '@/types/project';
 import type { ReviewChallenge } from '@/types/quiz';
 import { useStepAnalysis } from '@/hooks/useStepAnalysis';
 import { buildStep5Prompt } from '@/utils/promptTemplatesAdvanced';
+import { filterStudiedFiles } from '@/utils/studiedFiles';
 import { CodeViewer } from './CodeViewer';
+import { NoStudiedFiles } from './Step4Helpers';
 
 interface Step5Props { project: StoredProject; }
 interface Step5Response { challenges: ReviewChallenge[]; }
 
-/** 5단계: 코드 리뷰 훈련 */
+/** 5단계: 코드 리뷰 훈련 — 학습 완료 파일 기반 */
 export function Step5CodeReview({ project }: Step5Props) {
-  const prompt = buildStep5Prompt(project.files);
-  const { data, status, error, retry } = useStepAnalysis<Step5Response>('codereadr_step5', prompt);
+  // 3단계에서 학습 완료한 파일만 필터링
+  const [studiedFiles, setStudiedFiles] = useState<ProjectFile[]>([]);
+  useEffect(() => {
+    setStudiedFiles(filterStudiedFiles(project.files));
+  }, [project.files]);
+
+  const hasStudied = studiedFiles.length > 0;
+  const cacheKey = `codereadr_step5_${studiedFiles.length}`;
+  const prompt = hasStudied ? buildStep5Prompt(studiedFiles) : null;
+  const { data, status, error, retry } = useStepAnalysis<Step5Response>(cacheKey, prompt);
 
   const [currentIdx, setCurrentIdx] = useState(0); // 현재 챌린지 인덱스
   const [hintLevel, setHintLevel] = useState(0); // 표시된 힌트 단계 (0=없음, 1~3)
   const [showAnswer, setShowAnswer] = useState(false); // 정답 공개 여부
 
+  if (!hasStudied) return <NoStudiedFiles />;
   if (status === 'loading') return <Loading />;
   if (status === 'error' || !data) return <ErrorView msg={error} onRetry={retry} />;
 
@@ -132,9 +139,9 @@ function Section({ title, color, children }: { title: string; color: string; chi
 }
 
 function CategoryBadge({ category }: { category: string }) {
-  const labels: Record<string, string> = { security: 'SECURITY', performance: 'PERFORMANCE', structure: 'STRUCTURE', error_handling: 'ERROR', accessibility: 'A11Y' };
+  const labels: Record<string, string> = { security: 'SECURITY', performance: 'PERF', structure: 'STRUCT', error_handling: 'ERROR', accessibility: 'A11Y' };
   return <span className="text-[9px] font-mono bg-secondary-container text-on-surface-variant px-2 py-0.5">{labels[category] || category}</span>;
 }
 
-function Loading() { return <div className="flex items-center justify-center h-full"><p className="text-mint font-mono text-sm animate-pulse">AI가 코드 리뷰 포인트를 찾고 있어요...</p></div>; }
-function ErrorView({ msg, onRetry }: { msg: string | null; onRetry: () => void }) { return <div className="flex items-center justify-center h-full flex-col gap-4"><p className="text-error-red font-mono text-sm">{msg}</p><button onClick={onRetry} className="bg-mint text-on-mint px-6 py-2 font-mono text-sm font-bold">Retry</button></div>; }
+function Loading() { return <div className="flex items-center justify-center h-full"><p className="text-mint font-mono text-sm animate-pulse">코드 리뷰 포인트를 찾고 있어요...</p></div>; }
+function ErrorView({ msg, onRetry }: { msg: string | null; onRetry: () => void }) { return <div className="flex items-center justify-center h-full flex-col gap-4"><p className="text-error-red text-sm">{msg}</p><button onClick={onRetry} className="bg-mint text-on-mint px-6 py-2 font-mono text-sm font-bold">Retry</button></div>; }
