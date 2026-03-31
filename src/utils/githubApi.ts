@@ -9,19 +9,12 @@ import type { ProjectFile } from '@/types/project';
 import { SUPPORTED_EXTENSIONS } from '@/constants';
 
 /**
- * codeload.github.com에서 zip을 다운로드한다.
- * main 브랜치 실패 시 master로 자동 재시도한다.
- * API rate limit과 무관한 직접 다운로드 URL을 사용한다.
+ * Next.js API Route 프록시를 통해 GitHub 레포 zip을 다운로드한다.
+ * 서버 사이드에서 codeload.github.com을 호출하므로 CORS 문제 없음.
+ * 브랜치 폴백(main→master)은 API Route에서 처리한다.
  */
-async function fetchZipWithFallback(owner: string, repo: string): Promise<Response> {
-  // main 브랜치 먼저 시도
-  const mainUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/main`;
-  const mainResp = await fetch(mainUrl);
-  if (mainResp.ok) return mainResp;
-
-  // main 실패 시 master로 재시도
-  const masterUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/master`;
-  return fetch(masterUrl);
+async function fetchZipViaProxy(owner: string, repo: string): Promise<Response> {
+  return fetch(`/api/github?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
 }
 
 /**
@@ -58,9 +51,8 @@ export async function fetchRepoAsZip(
   repo: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<ProjectFile[]> {
-  // codeload.github.com — API rate limit을 우회하는 직접 다운로드 URL
-  // main 브랜치 시도 → 실패 시 master로 재시도
-  const response = await fetchZipWithFallback(owner, repo);
+  // Next.js API Route 프록시 경유 (CORS 우회 + rate limit 무관)
+  const response = await fetchZipViaProxy(owner, repo);
 
   if (!response.ok) {
     throw new Error(
