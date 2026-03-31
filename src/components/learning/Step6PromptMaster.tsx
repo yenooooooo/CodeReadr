@@ -9,8 +9,10 @@ import { useState } from 'react';
 import type { StoredProject } from '@/types/project';
 import type { PromptScenario, PromptEvaluation } from '@/types/quiz';
 import { useStepAnalysis } from '@/hooks/useStepAnalysis';
-import { buildStep6Prompt, buildPromptEvalPrompt } from '@/utils/promptTemplatesAdvanced';
+import { buildStep6Prompt } from '@/utils/promptTemplatesAdvanced';
+import { buildPromptEvalPrompt } from '@/utils/promptEvalTemplates';
 import { callGeminiJSON } from '@/utils/gemini';
+import { EvaluationResult, Loading, ErrorView } from './Step6Helpers';
 
 interface Step6Props { project: StoredProject; }
 interface Step6Response { scenarios: PromptScenario[]; }
@@ -142,48 +144,3 @@ export function Step6PromptMaster({ project }: Step6Props) {
     </div>
   );
 }
-
-/** 평가 결과 표시 */
-function EvaluationResult({ evaluation, userPrompt }: { evaluation: PromptEvaluation; userPrompt: string }) {
-  return (
-    <>
-      {/* Before */}
-      <div>
-        <span className="text-[9px] font-mono bg-error-red/10 text-error-red px-1.5 border border-error-red/20">BEFORE</span>
-        <div className="mt-2 bg-surface-container-lowest p-3 border-l border-error-red/50 font-mono text-[10px] text-on-surface-variant/70 italic">
-          {userPrompt}
-        </div>
-      </div>
-      {/* After */}
-      <div>
-        <span className="text-[9px] font-mono bg-mint/10 text-mint px-1.5 border border-mint/20">AFTER</span>
-        <div className="mt-2 bg-surface-container-lowest p-3 border-l-2 border-mint font-mono text-[11px] text-mint/90 leading-relaxed">
-          {evaluation.improvedPrompt}
-        </div>
-      </div>
-      {/* 피드백 */}
-      <div>
-        <span className="text-[10px] font-mono text-outline uppercase">Feedback</span>
-        <p className="mt-1 text-sm text-on-surface-variant leading-relaxed">{evaluation.feedback}</p>
-      </div>
-      {/* 메트릭 */}
-      <div className="grid grid-cols-3 gap-3">
-        <Metric label="구체성" value={evaluation.specificityScore} />
-        <Metric label="기술용어" value={evaluation.technicalTermScore} />
-        <Metric label="완성도" value={evaluation.completenessScore} />
-      </div>
-    </>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="p-3 bg-surface-container-high border border-outline-variant/20">
-      <div className="text-[9px] text-outline font-mono uppercase">{label}</div>
-      <div className="text-lg font-mono text-mint">{value}</div>
-    </div>
-  );
-}
-
-function Loading() { return <div className="flex items-center justify-center h-full"><p className="text-mint font-mono text-sm animate-pulse">AI가 시나리오를 생성하고 있어요...</p></div>; }
-function ErrorView({ msg, onRetry }: { msg: string | null; onRetry: () => void }) { return <div className="flex items-center justify-center h-full flex-col gap-4"><p className="text-error-red font-mono text-sm">{msg}</p><button onClick={onRetry} className="bg-mint text-on-mint px-6 py-2 font-mono text-sm font-bold">Retry</button></div>; }

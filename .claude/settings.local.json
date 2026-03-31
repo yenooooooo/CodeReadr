@@ -8,7 +8,13 @@
       "Bash(printf nnnn:*)",
       "Bash(npx create-next-app@latest code-readr-temp --yes --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
       "Bash(cp -r code-readr-temp/. CodeReadr/)",
-      "Bash(npx shadcn@latest init -d --yes)"
+      "Bash(npx shadcn@latest init -d --yes)",
+      "Bash(npx shadcn@latest add card progress badge tabs accordion separator scroll-area --yes)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(grep:*)",
+      "Bash(for file:*)",
+      "Bash(do if:*)"
     ]
   }
 }

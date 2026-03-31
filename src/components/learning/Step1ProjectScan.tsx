@@ -2,19 +2,31 @@
  * 1단계: 프로젝트 스캔 컴포넌트
  * 프로젝트 전체 지도(폴더 트리) + 파일별 역할 요약 + 핵심 기능 카드.
  * stitch(12) 디자인 참고: 왼쪽 파일 탐색기 + 오른쪽 설명 패널.
+ *
+ * 보조 UI 컴포넌트(FolderTreeNode, FileDetailCard, ImportanceBadge,
+ * FileRoleTable)는 Step1Helpers.tsx로 분리됨.
  */
 
 'use client';
 
 import { useState } from 'react';
-import type { StoredProject, FolderNode, FileRole } from '@/types/project';
+import type { StoredProject } from '@/types/project';
+import {
+  FolderTreeNode,
+  FileDetailCard,
+  FileRoleTable,
+} from './Step1Helpers';
 
 /** Step1 props */
 interface Step1Props {
+  /** 분석 완료된 프로젝트 데이터 */
   project: StoredProject;
 }
 
-/** 1단계: 프로젝트 스캔 */
+/**
+ * 1단계: 프로젝트 스캔 — 좌측 파일 탐색기 + 우측 설명 패널 레이아웃.
+ * @param project - localStorage에서 불러온 분석 완료 프로젝트
+ */
 export function Step1ProjectScan({ project }: Step1Props) {
   const { structure } = project;
   // 선택된 파일 경로 (클릭 시 상세 표시)
@@ -96,100 +108,6 @@ export function Step1ProjectScan({ project }: Step1Props) {
           <FileRoleTable roles={structure.fileRoles} onSelect={setSelectedFile} />
         </div>
       </section>
-    </div>
-  );
-}
-
-/** 폴더 트리 노드 (재귀) */
-function FolderTreeNode({
-  node, depth, selectedFile, onSelect,
-}: {
-  node: FolderNode;
-  depth: number;
-  selectedFile: string | null;
-  onSelect: (path: string) => void;
-}) {
-  const isFolder = node.type === 'folder';
-  const isSelected = !isFolder && selectedFile === node.name;
-
-  return (
-    <>
-      <div
-        onClick={() => !isFolder && onSelect(node.name)}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        className={`
-          flex items-center gap-2 py-1 cursor-pointer transition-colors
-          ${isSelected
-            ? 'bg-surface-container-high text-mint border-l-2 border-mint'
-            : 'text-on-surface-variant hover:bg-surface-container-high'
-          }
-        `}
-      >
-        <span className="text-[10px]">{isFolder ? '📂' : '📄'}</span>
-        <span className="truncate">{node.name}</span>
-      </div>
-      {isFolder && node.children?.map((child) => (
-        <FolderTreeNode
-          key={child.name}
-          node={child}
-          depth={depth + 1}
-          selectedFile={selectedFile}
-          onSelect={onSelect}
-        />
-      ))}
-    </>
-  );
-}
-
-/** 파일 상세 카드 */
-function FileDetailCard({ role }: { role: FileRole }) {
-  return (
-    <div className="bg-surface-container-highest border border-mint/30 p-6">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-1 h-3 bg-mint" />
-        <span className="text-[10px] font-mono text-mint font-bold uppercase tracking-widest">
-          File Detail
-        </span>
-      </div>
-      <h3 className="font-mono text-sm text-on-surface mb-2">{role.path}</h3>
-      <p className="text-on-surface-variant text-sm leading-relaxed">{role.role}</p>
-      <div className="mt-3">
-        <ImportanceBadge importance={role.importance} />
-      </div>
-    </div>
-  );
-}
-
-/** 중요도 뱃지 */
-function ImportanceBadge({ importance }: { importance: 1 | 2 | 3 }) {
-  const labels = { 1: 'CORE', 2: 'SUPPORT', 3: 'CONFIG' } as const;
-  const colors = { 1: 'text-mint bg-mint/10 border-mint/20', 2: 'text-on-surface-variant bg-secondary-container border-outline-variant/30', 3: 'text-outline bg-surface-container border-outline-variant/20' };
-  return (
-    <span className={`text-[9px] font-mono px-2 py-0.5 border ${colors[importance]}`}>
-      {labels[importance]}
-    </span>
-  );
-}
-
-/** 파일 역할 테이블 */
-function FileRoleTable({ roles, onSelect }: { roles: FileRole[]; onSelect: (p: string) => void }) {
-  return (
-    <div className="border border-outline-variant/30 bg-surface-container-lowest">
-      {roles.map((role, i) => (
-        <div
-          key={role.path}
-          onClick={() => onSelect(role.path)}
-          className={`
-            flex items-center gap-4 px-4 py-2 font-mono text-[11px] cursor-pointer transition-colors
-            hover:bg-surface-container-high
-            ${i % 2 === 0 ? 'bg-surface' : 'bg-surface-container-low'}
-          `}
-        >
-          <ImportanceBadge importance={role.importance} />
-          <span className="text-on-surface-variant flex-1 truncate">{role.path}</span>
-          <span className="text-outline text-[10px] truncate max-w-[50%]">{role.role}</span>
-        </div>
-      ))}
     </div>
   );
 }

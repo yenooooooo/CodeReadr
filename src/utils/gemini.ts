@@ -74,7 +74,13 @@ export async function callGemini(
     throw new Error(`Gemini API 요청 실패 (${response.status})`);
   }
 
-  const data: GeminiResponse = await response.json();
+  // 응답 JSON 파싱 (비정상 응답 시 안전하게 에러 처리)
+  let data: GeminiResponse;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('Gemini API 응답을 파싱할 수 없습니다.');
+  }
 
   // 응답에서 텍스트 추출
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;

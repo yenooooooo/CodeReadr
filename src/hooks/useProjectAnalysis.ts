@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStorage } from '@/hooks/useStorage';
 import { callGeminiJSON } from '@/utils/gemini';
@@ -42,6 +42,15 @@ export function useProjectAnalysis(): UseProjectAnalysisReturn {
   const router = useRouter();
   const { save } = useStorage();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // setTimeout ID를 저장하여 언마운트 시 cleanup
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
   const [logs, setLogs] = useState<LogItem[]>([
     { time: getTimeString(), level: 'READY', message: 'Waiting for ingestion stream...' },
     { time: getTimeString(), level: 'INFO', message: 'Engine v2.4 initialized. Modules connected.' },
@@ -81,10 +90,11 @@ export function useProjectAnalysis(): UseProjectAnalysisReturn {
       save(STORAGE_KEYS.PROJECT, project);
       addLog('DONE', 'Analysis saved. Redirecting to learning module...');
 
-      setTimeout(() => router.push('/learn'), 800);
+      redirectTimerRef.current = setTimeout(() => router.push('/learn'), 800);
     } catch (err) {
       console.error('Gemini 분석 에러:', err);
       addLog('ERROR', UI_TEXT.ERROR_API_FAILED);
+    } finally {
       setIsAnalyzing(false);
     }
   }, [addLog, save, router]);
