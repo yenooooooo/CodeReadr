@@ -5,6 +5,7 @@
  */
 
 import { GEMINI_CONFIG } from '@/constants';
+import { repairTruncatedJSON } from './jsonRepair';
 
 /** Gemini API 키 (환경 변수에서 읽기) */
 const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -103,18 +104,32 @@ export async function callGeminiJSON<T>(
   prompt: string,
   options: GeminiRequestOptions = {}
 ): Promise<T> {
-  const text = await callGemini(prompt, options);
+  // 토큰 제한으로 잘리지 않도록 충분한 출력 토큰 확보
+  const jsonOptions = {
+    ...options,
+    maxOutputTokens: options.maxOutputTokens ?? 16384,
+  };
+  const text = await callGemini(prompt, jsonOptions);
 
   // AI 응답에서 JSON 부분만 추출 (```json ... ``` 또는 순수 JSON)
   const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
                     text.match(/```\s*([\s\S]*?)\s*```/);
 
-  const jsonString = jsonMatch ? jsonMatch[1] : text;
+  let jsonString = jsonMatch ? jsonMatch[1] : text;
+  jsonString = jsonString.trim();
 
+  // 1차 시도: 그대로 파싱
   try {
-    return JSON.parse(jsonString.trim()) as T;
-  } catch (error) {
-    console.error('JSON 파싱 실패. 원본 응답:', text);
-    throw new Error('AI 응답을 JSON으로 변환하는 데 실패했습니다.');
+    return JSON.parse(jsonString) as T;
+  } catch {
+    // 2차 시도: 잘린 JSON 복구 — 닫히지 않은 괄호/대괄호 보정
+    const repaired = repairTruncatedJSON(jsonString);
+    try {
+      return JSON.parse(repaired) as T;
+    } catch {
+      console.error('JSON 파싱 실패. 원본 응답:', text.slice(0, 500));
+      throw new Error('AI 응답을 JSON으로 변환하는 데 실패했습니다.');
+    }
   }
 }
+

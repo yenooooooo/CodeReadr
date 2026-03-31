@@ -1,10 +1,11 @@
 /**
  * 학습 단계 페이지 (/learn/step/[id])
- * URL 파라미터로 단계 번호를 받아 해당 단계 콘텐츠를 렌더링.
- * 각 단계별 컴포넌트로 분기한다.
+ * ClientOnly로 감싸서 SSR 하이드레이션 불일치 방지.
  */
 
+import { ClientOnly } from '@/components/layout/ClientOnly';
 import { StepClient } from '@/components/learning/StepClient';
+import { PageLoading } from '@/components/ui/LoadingSkeleton';
 
 /** 학습 단계 페이지 props */
 interface StepPageProps {
@@ -14,5 +15,9 @@ interface StepPageProps {
 /** 학습 단계 페이지 */
 export default async function StepPage({ params }: StepPageProps) {
   const { id } = await params;
-  return <StepClient stepId={id} />;
+  return (
+    <ClientOnly fallback={<PageLoading message="Loading step..." />}>
+      <StepClient stepId={id} />
+    </ClientOnly>
+  );
 }

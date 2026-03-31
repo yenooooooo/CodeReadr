@@ -1,12 +1,17 @@
 /**
  * 학습 메인 페이지 (/learn)
- * 6단계 학습 로드맵 + 프로젝트 전체 지도 표시.
- * 레이아웃만 담당, UI는 컴포넌트로 분리.
+ * ClientOnly로 감싸서 SSR 하이드레이션 불일치 방지.
  */
 
+import { ClientOnly } from '@/components/layout/ClientOnly';
 import { LearnClient } from '@/components/learning/LearnClient';
+import { PageLoading } from '@/components/ui/LoadingSkeleton';
 
 /** 학습 메인 페이지 */
 export default function LearnPage() {
-  return <LearnClient />;
+  return (
+    <ClientOnly fallback={<PageLoading message="Loading roadmap..." />}>
+      <LearnClient />
+    </ClientOnly>
+  );
 }
