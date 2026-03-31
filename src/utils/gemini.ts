@@ -33,18 +33,16 @@ interface GeminiResponse {
  * Gemini API에 프롬프트를 보내고 텍스트 응답을 받는다.
  * @param prompt - AI에게 보낼 프롬프트 문자열
  * @param options - API 요청 옵션 (모델, temperature 등)
+ * @param jsonMode - true면 responseMimeType을 application/json으로 설정
  * @returns AI 응답 텍스트
- * @throws API 키 미설정 또는 요청 실패 시 에러
  */
-export async function callGemini(
+async function fetchGemini(
   prompt: string,
-  options: GeminiRequestOptions = {}
+  options: GeminiRequestOptions = {},
+  jsonMode: boolean = false
 ): Promise<string> {
-  // API 키가 설정되어 있는지 확인
   if (!API_KEY || API_KEY === 'your_gemini_api_key_here') {
-    throw new Error(
-      'Gemini API 키가 설정되지 않았습니다. .env.local 파일을 확인해주세요.'
-    );
+    throw new Error('Gemini API 키가 설정되지 않았습니다.');
   }
 
   const {
@@ -53,29 +51,32 @@ export async function callGemini(
     maxOutputTokens = GEMINI_CONFIG.MAX_OUTPUT_TOKENS,
   } = options;
 
-  // Gemini API 엔드포인트로 POST 요청
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+
+  // generationConfig에 JSON 모드 추가
+  const generationConfig: Record<string, unknown> = {
+    temperature,
+    maxOutputTokens,
+  };
+  if (jsonMode) {
+    generationConfig.responseMimeType = 'application/json';
+  }
 
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature,
-        maxOutputTokens,
-      },
+      generationConfig,
     }),
   });
 
-  // HTTP 에러 처리
   if (!response.ok) {
     const errorBody = await response.text();
     console.error('Gemini API 에러:', response.status, errorBody);
     throw new Error(`Gemini API 요청 실패 (${response.status})`);
   }
 
-  // 응답 JSON 파싱 (비정상 응답 시 안전하게 에러 처리)
   let data: GeminiResponse;
   try {
     data = await response.json();
@@ -83,7 +84,6 @@ export async function callGemini(
     throw new Error('Gemini API 응답을 파싱할 수 없습니다.');
   }
 
-  // 응답에서 텍스트 추출
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) {
     throw new Error('Gemini API에서 빈 응답을 받았습니다.');
@@ -93,43 +93,44 @@ export async function callGemini(
 }
 
 /**
- * Gemini API에 프롬프트를 보내고 JSON 응답을 파싱하여 반환한다.
- * AI 응답에서 JSON 블록을 추출하고 파싱한다.
- * @param prompt - AI에게 보낼 프롬프트 (JSON 응답을 요청하는 내용 포함)
- * @param options - API 요청 옵션
- * @returns 파싱된 JSON 객체
- * @throws JSON 파싱 실패 시 에러
+ * Gemini API에 프롬프트를 보내고 텍스트 응답을 받는다 (공개 API).
+ */
+export async function callGemini(
+  prompt: string,
+  options: GeminiRequestOptions = {}
+): Promise<string> {
+  return fetchGemini(prompt, options, false);
+}
+
+/**
+ * Gemini API에 JSON 모드로 호출하여 파싱된 객체를 반환한다.
+ * responseMimeType: application/json으로 순수 JSON 출력을 강제한다.
  */
 export async function callGeminiJSON<T>(
   prompt: string,
   options: GeminiRequestOptions = {}
 ): Promise<T> {
-  // 토큰 제한으로 잘리지 않도록 충분한 출력 토큰 확보
   const jsonOptions = {
     ...options,
     maxOutputTokens: options.maxOutputTokens ?? 16384,
   };
-  const text = await callGemini(prompt, jsonOptions);
 
-  // AI 응답에서 JSON 부분만 추출 (```json ... ``` 또는 순수 JSON)
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) ||
-                    text.match(/```\s*([\s\S]*?)\s*```/);
+  const text = await fetchGemini(prompt, jsonOptions, true);
 
-  let jsonString = jsonMatch ? jsonMatch[1] : text;
-  jsonString = jsonString.trim();
+  // JSON 모드에서도 간혹 ```json 래퍼가 붙을 수 있으므로 제거
+  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  const jsonString = (jsonMatch ? jsonMatch[1] : text).trim();
 
-  // 1차 시도: 그대로 파싱
+  // 1차: 그대로 파싱
   try {
     return JSON.parse(jsonString) as T;
   } catch {
-    // 2차 시도: 잘린 JSON 복구 — 닫히지 않은 괄호/대괄호 보정
-    const repaired = repairTruncatedJSON(jsonString);
+    // 2차: 잘린 JSON 복구
     try {
-      return JSON.parse(repaired) as T;
+      return JSON.parse(repairTruncatedJSON(jsonString)) as T;
     } catch {
-      console.error('JSON 파싱 실패. 원본 응답:', text.slice(0, 500));
+      console.error('JSON 파싱 실패. 원본:', text.slice(0, 500));
       throw new Error('AI 응답을 JSON으로 변환하는 데 실패했습니다.');
     }
   }
 }
-
