@@ -14,7 +14,8 @@
       "Bash(npm run:*)",
       "Bash(grep:*)",
       "Bash(for file:*)",
-      "Bash(do if:*)"
+      "Bash(do if:*)",
+      "Bash(npm install:*)"
     ]
   }
 }

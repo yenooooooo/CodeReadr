@@ -1,117 +1,101 @@
 /**
- * GitHub REST API 저수준 호출 함수
- * 파일 트리 가져오기, 개별 파일 내용 가져오기를 담당한다.
- * githubParser.ts에서 사용하는 내부 모듈.
+ * GitHub REST API — zipball 방식
+ * 레포 전체를 zip으로 한 번에 다운로드하여 파일을 추출한다.
+ * API 호출 1회로 모든 파일을 가져오므로 rate limit 문제가 없다.
  */
 
+import JSZip from 'jszip';
+import type { ProjectFile } from '@/types/project';
 import { SUPPORTED_EXTENSIONS } from '@/constants';
-
-/** GitHub API 트리 응답의 개별 파일 항목 */
-export interface GitHubTreeItem {
-  path: string;
-  mode: string;
-  type: 'blob' | 'tree';
-  sha: string;
-  size?: number;
-  url: string;
-}
-
-/** GitHub API 트리 응답 구조 */
-interface GitHubTreeResponse {
-  sha: string;
-  url: string;
-  tree: GitHubTreeItem[];
-  truncated: boolean;
-}
 
 /**
  * 파일 경로가 지원되는 코드 파일인지 확인한다.
  * @param path - 파일 경로
  */
-function isSupportedPath(path: string): boolean {
+function isSupportedFile(path: string): boolean {
   const ext = path.split('.').pop()?.toLowerCase() || '';
   return (SUPPORTED_EXTENSIONS as readonly string[]).includes(ext);
 }
 
 /**
- * GitHub REST API로 공개 레포의 전체 파일 트리를 가져온다.
- * main 브랜치 실패 시 master로 자동 재시도한다.
+ * zip 내부 경로에서 레포 루트 접두사를 제거한다.
+ * GitHub zipball은 "{owner}-{repo}-{sha}/" 접두사가 붙는다.
+ * @param zipPath - zip 내부 전체 경로
+ * @returns 레포 기준 상대 경로
+ */
+function stripZipPrefix(zipPath: string): string {
+  // 첫 번째 '/' 이후가 실제 레포 경로
+  const idx = zipPath.indexOf('/');
+  return idx >= 0 ? zipPath.slice(idx + 1) : zipPath;
+}
+
+/**
+ * GitHub 공개 레포를 zipball로 다운로드하여 ProjectFile[] 배열로 변환한다.
+ * API 호출 1회 (zipball 다운로드)로 전체 파일을 가져온다.
  * @param owner - 레포 소유자
  * @param repo - 레포 이름
- * @param branch - 브랜치명 (기본: "main")
- * @returns 지원되는 코드 파일들의 목록
+ * @param onProgress - 진행 상황 콜백
+ * @returns ProjectFile 배열
  */
-export async function fetchFileTree(
+export async function fetchRepoAsZip(
   owner: string,
   repo: string,
-  branch: string = 'main'
-): Promise<GitHubTreeItem[]> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+  onProgress?: (current: number, total: number) => void
+): Promise<ProjectFile[]> {
+  // GitHub zipball API — 레포 전체를 zip으로 다운로드 (API 1회)
+  const url = `https://api.github.com/repos/${owner}/${repo}/zipball`;
 
   const response = await fetch(url, {
     headers: { Accept: 'application/vnd.github.v3+json' },
   });
 
   if (!response.ok) {
-    if (branch === 'main') {
-      return fetchFileTree(owner, repo, 'master');
+    throw new Error(
+      `GitHub 레포 다운로드 실패 (${response.status}). 공개 저장소인지 확인해주세요.`
+    );
+  }
+
+  // zip 바이너리를 ArrayBuffer로 읽기
+  const buffer = await response.arrayBuffer();
+
+  // JSZip으로 zip 파싱
+  const zip = await JSZip.loadAsync(buffer);
+
+  // zip 내부에서 지원되는 코드 파일만 필터링
+  const entries: { path: string; file: JSZip.JSZipObject }[] = [];
+  zip.forEach((relativePath, file) => {
+    // 디렉토리는 건너뛰기
+    if (file.dir) return;
+    const cleanPath = stripZipPrefix(relativePath);
+    // node_modules, .git 등 제외
+    if (cleanPath.startsWith('node_modules/')) return;
+    if (cleanPath.startsWith('.git/')) return;
+    if (cleanPath.startsWith('.next/')) return;
+    // 지원되는 확장자만 포함
+    if (isSupportedFile(cleanPath)) {
+      entries.push({ path: cleanPath, file });
     }
-    throw new Error(`GitHub API 요청 실패 (${response.status}). 레포가 공개 저장소인지 확인해주세요.`);
-  }
-
-  // 응답 JSON 파싱 (비정상 응답 시 안전하게 처리)
-  let data: GitHubTreeResponse;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error('GitHub API 응답을 파싱할 수 없습니다.');
-  }
-
-  if (!Array.isArray(data.tree)) {
-    throw new Error('GitHub API에서 파일 트리를 받지 못했습니다.');
-  }
-
-  return data.tree.filter(
-    (item) => item.type === 'blob' && isSupportedPath(item.path)
-  );
-}
-
-/**
- * GitHub API로 개별 파일의 내용을 가져온다.
- * 실패 시 빈 문자열을 반환하여 배치 전체 실패를 방지한다.
- * @param owner - 레포 소유자
- * @param repo - 레포 이름
- * @param path - 파일 경로
- * @returns 파일 텍스트 내용
- */
-export async function fetchFileContent(
-  owner: string,
-  repo: string,
-  path: string
-): Promise<string> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-
-  const response = await fetch(url, {
-    headers: { Accept: 'application/vnd.github.v3+json' },
   });
 
-  if (!response.ok) return '';
+  const total = entries.length;
+  const results: ProjectFile[] = [];
 
-  let data: { content?: string; encoding?: string };
-  try {
-    data = await response.json();
-  } catch {
-    return '';
-  }
-
-  if (data.content && data.encoding === 'base64') {
+  // 각 파일 내용을 텍스트로 추출
+  for (let i = 0; i < entries.length; i++) {
+    const { path, file } = entries[i];
     try {
-      return atob(data.content.replace(/\n/g, ''));
+      const content = await file.async('string');
+      results.push({
+        path,
+        content,
+        extension: path.split('.').pop()?.toLowerCase() || '',
+        size: content.length,
+      });
     } catch {
-      console.error(`base64 디코딩 실패: ${path}`);
-      return '';
+      // 바이너리 파일 등 텍스트 변환 실패 시 건너뛰기
     }
+    onProgress?.(i + 1, total);
   }
 
-  return '';
+  return results;
 }
