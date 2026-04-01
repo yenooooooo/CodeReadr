@@ -38,10 +38,10 @@ export const GEMINI_CONFIG = {
   CONTENT_TEMPERATURE: 0.5,
   /** 최대 출력 토큰 수 */
   MAX_OUTPUT_TOKENS: 8192,
-  /** 기본 모델 (무료 티어) */
-  DEFAULT_MODEL: 'gemini-2.5-flash',
+  /** 기본 모델 (무료 티어 — 분당 15회, 일일 1,500회) */
+  DEFAULT_MODEL: 'gemini-2.0-flash',
   /** 복잡한 분석용 모델 */
-  ADVANCED_MODEL: 'gemini-2.5-pro',
+  ADVANCED_MODEL: 'gemini-2.5-flash',
 } as const;
 
 /** 6단계 학습 시스템 정보 */
