@@ -127,3 +127,9 @@
     color: #4de082;
   }
 }
+
+/* 스피너 애니메이션 — 사각형 테두리를 따라 민트색 선이 이동 */
+@keyframes scan {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -312; }
+}
