@@ -11,10 +11,11 @@ import { useState, useEffect } from 'react';
 import type { StoredProject, ProjectFile } from '@/types/project';
 import type { Quiz, QuizEvaluation } from '@/types/quiz';
 import { useStepAnalysis } from '@/hooks/useStepAnalysis';
-import { buildStep4Prompt } from '@/utils/promptTemplatesAdvanced';
+import { buildStep4Prompt, buildStep4DocPrompt } from '@/utils/promptTemplatesAdvanced';
 import { buildQuizEvalPrompt } from '@/utils/promptEvalTemplates';
 import { callGeminiJSON } from '@/utils/gemini';
 import { filterStudiedFiles } from '@/utils/studiedFiles';
+import { isDocOnlyProject } from '@/utils/fileParser';
 import { CodeViewer } from './CodeViewer';
 import { QuizScorePanel, NoStudiedFiles, QuizLoading, QuizError } from './Step4Helpers';
 
@@ -30,10 +31,13 @@ export function Step4Quiz({ project }: Step4Props) {
     setStudiedFiles(filterStudiedFiles(project.files));
   }, [project.files]);
 
+  const docOnly = isDocOnlyProject(project.files);
   const hasStudied = studiedFiles.length > 0;
   // 학습 파일 수를 캐시 키에 포함 → 새 파일 학습 시 퀴즈 재생성
   const cacheKey = `codereadr_step4_${studiedFiles.length}`;
-  const prompt = hasStudied ? buildStep4Prompt(studiedFiles) : null;
+  const prompt = hasStudied
+    ? (docOnly ? buildStep4DocPrompt(studiedFiles) : buildStep4Prompt(studiedFiles))
+    : null;
   const { data, status, error, retry } = useStepAnalysis<Step4Response>(cacheKey, prompt);
 
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -74,7 +78,7 @@ export function Step4Quiz({ project }: Step4Props) {
         <div className="p-6 border-b border-outline-variant/30 flex justify-between items-end bg-surface-container-low">
           <div>
             <h1 className="text-xl font-bold text-on-surface flex items-center gap-3">
-              로직 리뷰 퀴즈
+              {docOnly ? '개념 이해 퀴즈' : '로직 리뷰 퀴즈'}
               <span className="text-[10px] font-mono bg-mint-container text-mint px-2 py-0.5">
                 학습 파일 {studiedFiles.length}개 기반
               </span>
@@ -93,7 +97,7 @@ export function Step4Quiz({ project }: Step4Props) {
           <textarea
             value={userAnswer}
             onChange={(e) => setUserAnswer(e.target.value)}
-            placeholder="이 코드가 하는 일을 설명해보세요..."
+            placeholder={docOnly ? "이 내용에 대해 설명해보세요..." : "이 코드가 하는 일을 설명해보세요..."}
             className="flex-1 bg-surface-container-low border border-outline-variant focus:border-mint focus:ring-0 text-on-surface font-mono text-sm p-4 resize-none transition-all placeholder:text-outline/40"
           />
           <div className="mt-4 flex justify-end">

@@ -9,8 +9,9 @@
 import { useState, useCallback } from 'react';
 import type { StoredProject } from '@/types/project';
 import { callGeminiJSON } from '@/utils/gemini';
-import { buildFileExplainPrompt } from '@/utils/promptFileExplain';
+import { buildFileExplainPrompt, buildDocExplainPrompt } from '@/utils/promptFileExplain';
 import type { FileExplanation } from '@/utils/promptFileExplain';
+import { isDocOnlyProject } from '@/utils/fileParser';
 import { CodeViewer } from './CodeViewer';
 import { FileExplainPanel } from './FileExplainPanel';
 
@@ -22,6 +23,7 @@ interface Step3Props {
 /** 3단계: 파일별 코드 따라읽기 */
 export function Step3CodeWalkthrough({ project }: Step3Props) {
   const { files } = project;
+  const docOnly = isDocOnlyProject(files);
   const [selectedIdx, setSelectedIdx] = useState(0); // 선택된 파일 인덱스
   const [explanations, setExplanations] = useState<Record<string, FileExplanation>>({}); // 캐시
   const [isLoading, setIsLoading] = useState(false);
@@ -54,9 +56,10 @@ export function Step3CodeWalkthrough({ project }: Step3Props) {
     // Gemini API 호출
     setIsLoading(true);
     try {
-      const result = await callGeminiJSON<FileExplanation>(
-        buildFileExplainPrompt(file.path, file.content)
-      );
+      const prompt = docOnly
+        ? buildDocExplainPrompt(file.path, file.content)
+        : buildFileExplainPrompt(file.path, file.content);
+      const result = await callGeminiJSON<FileExplanation>(prompt);
       setExplanations((prev) => ({ ...prev, [file.path]: result }));
       localStorage.setItem(cacheKey, JSON.stringify(result));
     } catch {
@@ -72,7 +75,7 @@ export function Step3CodeWalkthrough({ project }: Step3Props) {
       <aside className="w-72 bg-surface border-r border-outline-variant/30 flex flex-col shrink-0">
         <div className="h-10 px-4 flex items-center justify-between border-b border-outline-variant/30 bg-surface-container-low">
           <span className="text-[11px] font-bold uppercase tracking-wider text-outline">
-            전체 파일 ({files.length})
+            {docOnly ? '문서 목록' : '전체 파일'} ({files.length})
           </span>
           <span className="text-[10px] font-mono text-mint">
             {completedCount}/{files.length}

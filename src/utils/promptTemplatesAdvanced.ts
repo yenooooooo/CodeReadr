@@ -50,6 +50,54 @@ ${formatFilesForPrompt(files)}
 }
 
 /**
+ * 4단계 (문서 전용): 개념 퀴즈 프롬프트
+ * 코드가 아닌 문서 기반으로 프로젝트 이해도 퀴즈를 출제한다.
+ */
+export function buildStep4DocPrompt(files: ProjectFile[]): string {
+  return `
+역할: 너는 프로젝트 이해도를 평가하는 친절한 AI 선생님이야.
+
+맥락: 아래에 프로젝트 설명 문서가 있어. 이건 코드가 아니라 프로젝트의 구조, 기능, 기술을 설명하는 문서야.
+
+${formatFilesForPrompt(files)}
+
+지시: 이 문서 내용을 바탕으로 3개의 퀴즈를 출제해줘.
+문제 유형: explanation(개념 설명), multiple_choice(객관식), short_answer(단답)를 섞어서.
+
+퀴즈 주제 예시:
+- 프로젝트가 어떤 기능을 제공하는지
+- 어떤 기술이 사용되고 왜 필요한지
+- 프로젝트 구조가 어떻게 되어있는지
+- 특정 기능이 왜 중요한지
+
+중요 규칙:
+- codeBlock 대신 문서에서 관련 내용 3~5줄을 발췌해서 넣어.
+- 비개발자도 답할 수 있는 수준으로 출제해.
+- 각 답변과 해설은 2문장 이내로 짧게.
+
+출력 형식: 반드시 아래 JSON 구조로만 응답해.
+\`\`\`json
+{
+  "quizzes": [
+    {
+      "id": "quiz-1",
+      "type": "explanation",
+      "codeBlock": "문서에서 발췌한 관련 내용 3~5줄",
+      "filePath": "파일경로",
+      "question": "질문",
+      "choices": null,
+      "correctAnswer": "짧은 모범답변",
+      "explanation": "짧은 해설"
+    }
+  ]
+}
+\`\`\`
+
+언어: 모든 설명은 한국어로 작성해.
+`.trim();
+}
+
+/**
  * 5단계: 코드 리뷰 포인트 생성 프롬프트
  * → 기대 응답: JSON (리뷰 챌린지 3개)
  */

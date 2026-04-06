@@ -74,6 +74,18 @@ export async function parseFiles(
   return parsed;
 }
 
+/** 코드 파일 확장자 */
+const CODE_EXTENSIONS = ['ts', 'tsx', 'js', 'jsx', 'css'];
+
+/**
+ * 프로젝트에 코드 파일이 하나도 없는 문서 전용 프���젝트인지 판별한다.
+ * @param files - 프로젝트 파일 배열
+ * @returns 코드 파일이 없으면 true
+ */
+export function isDocOnlyProject(files: { extension: string }[]): boolean {
+  return files.every((f) => !CODE_EXTENSIONS.includes(f.extension));
+}
+
 /**
  * 전체 파일 크기 합계를 계산한다.
  * @param files - FileList 또는 File 배열
