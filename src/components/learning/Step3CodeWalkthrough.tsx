@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { StoredProject } from '@/types/project';
 import { callGeminiJSON } from '@/utils/gemini';
 import { buildFileExplainPrompt, buildDocExplainPrompt } from '@/utils/promptFileExplain';
@@ -67,7 +67,10 @@ export function Step3CodeWalkthrough({ project }: Step3Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [files, explanations]);
+  }, [files, explanations, docOnly]);
+
+  // 마운트 시 첫 번째 파일 자동 분석
+  useEffect(() => { handleSelectFile(0); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full overflow-hidden">

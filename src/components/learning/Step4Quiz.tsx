@@ -26,12 +26,13 @@ interface Step4Response { quizzes: Quiz[]; }
 export function Step4Quiz({ project }: Step4Props) {
   const [studiedFiles, setStudiedFiles] = useState<ProjectFile[]>([]);
 
-  // 3단계에서 학습 완료한 파일만 필터링
-  useEffect(() => {
-    setStudiedFiles(filterStudiedFiles(project.files));
-  }, [project.files]);
-
   const docOnly = isDocOnlyProject(project.files);
+
+  // 문서 전용: 전체 파일 사용 / 코드 프로젝트: 3단계 학습 완료 파일만
+  useEffect(() => {
+    setStudiedFiles(docOnly ? project.files : filterStudiedFiles(project.files));
+  }, [project.files, docOnly]);
+
   const hasStudied = studiedFiles.length > 0;
   // 학습 파일 수를 캐시 키에 포함 → 새 파일 학습 시 퀴즈 재생성
   const cacheKey = `codereadr_step4_${studiedFiles.length}`;
@@ -45,7 +46,7 @@ export function Step4Quiz({ project }: Step4Props) {
   const [evaluation, setEvaluation] = useState<QuizEvaluation | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
-  if (!hasStudied) return <NoStudiedFiles />;
+  if (!hasStudied) return <NoStudiedFiles docOnly={docOnly} />;
   if (status === 'loading') return <QuizLoading />;
   if (status === 'error' || !data) return <QuizError msg={error} onRetry={retry} />;
 

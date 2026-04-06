@@ -40,17 +40,20 @@ function FB({ title, content, color }: { title: string; content: string; color: 
 }
 
 /** 학습한 파일 없음 안내 */
-export function NoStudiedFiles() {
+export function NoStudiedFiles({ docOnly = false }: { docOnly?: boolean }) {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center max-w-md">
         <div className="w-16 h-16 mx-auto mb-6 bg-surface-container-high border border-outline-variant flex items-center justify-center">
           <span className="text-2xl">📖</span>
         </div>
-        <h2 className="text-on-surface font-bold text-lg mb-2">먼저 코드를 읽어보세요</h2>
+        <h2 className="text-on-surface font-bold text-lg mb-2">
+          {docOnly ? '먼저 문서를 읽어보세요' : '먼저 코드를 읽어보세요'}
+        </h2>
         <p className="text-on-surface-variant text-sm leading-relaxed mb-4">
-          퀴즈는 3단계에서 학습한 파일 기반으로 출제됩니다.
-          먼저 3단계에서 파일을 클릭하여 코드를 학습해주세요.
+          {docOnly
+            ? '퀴즈는 3단계에서 학습한 문서 기반으로 출제됩니다. 먼저 3단계에서 문서를 읽어주세요.'
+            : '퀴즈는 3단계에서 학습한 파일 기반으로 출제됩니다. 먼저 3단계에서 파일을 클릭하여 코드를 학습해주세요.'}
         </p>
         <a href="/learn/step/3" className="inline-block bg-mint text-on-mint px-6 py-2 font-mono text-sm font-bold">
           3단계로 이동
