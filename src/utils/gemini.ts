@@ -57,7 +57,6 @@ async function fetchGemini(
     maxOutputTokens = GEMINI_CONFIG.MAX_OUTPUT_TOKENS,
   } = options;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
   const generationConfig: Record<string, unknown> = { temperature, maxOutputTokens };
   if (jsonMode) generationConfig.responseMimeType = 'application/json';
 
@@ -66,42 +65,69 @@ async function fetchGemini(
     generationConfig,
   });
 
-  // 재시도 루프 (429/503 시 대기 후 재시도)
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    });
+  // 시도할 모델 목록: 지정 모델 → 폴백 모델들
+  const modelsToTry = [model, ...GEMINI_CONFIG.FALLBACK_MODELS.filter((m) => m !== model)];
 
-    // 성공
-    if (response.ok) {
-      let data: GeminiResponse;
-      try { data = await response.json(); }
-      catch { throw new Error('Gemini API 응답을 파싱할 수 없습니다.'); }
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error('Gemini API에서 빈 응답을 받았습니다.');
-      return text;
-    }
+  for (const currentModel of modelsToTry) {
+    const currentUrl = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${API_KEY}`;
 
-    // 429 또는 503 → 재시도 가능
-    if ((response.status === 429 || response.status === 503) && attempt < MAX_RETRIES) {
-      // 에러 바디에서 retryDelay 추출 시도
+    // 재시도 루프 (429/503 시 대기 후 재시도)
+    let shouldTryNextModel = false;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(currentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+
+      // 성공
+      if (response.ok) {
+        let data: GeminiResponse;
+        try { data = await response.json(); }
+        catch { throw new Error('Gemini API 응답을 파싱할 수 없습니다.'); }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) throw new Error('Gemini API에서 빈 응답을 받았습니다.');
+        return text;
+      }
+
+      // 429 → 일일 할당량 소진이면 다음 모델로 폴백
+      if (response.status === 429) {
+        const errorBody = await response.text();
+        if (errorBody.includes('per_day') || errorBody.includes('PerDay')) {
+          console.warn(`Gemini ${currentModel}: 일일 할당량 소진 → 다음 모델 시도`);
+          shouldTryNextModel = true;
+          break;
+        }
+        // 분당 제한이면 대기 후 재시도
+        if (attempt < MAX_RETRIES) {
+          const delayMatch = errorBody.match(/retryDelay.*?(\d+)/);
+          const waitSec = delayMatch ? parseInt(delayMatch[1], 10) : 15 * (attempt + 1);
+          console.warn(`Gemini ${currentModel} ${response.status}: ${waitSec}초 후 재시도 (${attempt + 1}/${MAX_RETRIES})`);
+          await sleep(waitSec * 1000);
+          continue;
+        }
+        shouldTryNextModel = true;
+        break;
+      }
+
+      // 503 → 대기 후 재시도
+      if (response.status === 503 && attempt < MAX_RETRIES) {
+        const waitSec = 15 * (attempt + 1);
+        console.warn(`Gemini ${currentModel} 503: ${waitSec}초 후 재시도 (${attempt + 1}/${MAX_RETRIES})`);
+        await sleep(waitSec * 1000);
+        continue;
+      }
+
+      // 그 외 에러 → 즉시 실패
       const errorBody = await response.text();
-      const delayMatch = errorBody.match(/retryDelay.*?(\d+)/);
-      const waitSec = delayMatch ? parseInt(delayMatch[1], 10) : 15 * (attempt + 1);
-      console.warn(`Gemini ${response.status}: ${waitSec}초 후 재시도 (${attempt + 1}/${MAX_RETRIES})`);
-      await sleep(waitSec * 1000);
-      continue;
+      console.error('Gemini API 에러:', response.status, errorBody);
+      throw new Error(`Gemini API 요청 실패 (${response.status})`);
     }
 
-    // 그 외 에러 → 즉시 실패
-    const errorBody = await response.text();
-    console.error('Gemini API 에러:', response.status, errorBody);
-    throw new Error(`Gemini API 요청 실패 (${response.status})`);
+    if (!shouldTryNextModel) break;
   }
 
-  throw new Error('Gemini API 재시도 횟수를 초과했습니다.');
+  throw new Error('모든 Gemini 모델의 할당량이 소진되었습니다. 잠시 후 다시 시도해주세요.');
 }
 
 /** 텍스트 응답 받기 (공개 API) */

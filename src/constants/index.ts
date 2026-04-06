@@ -38,10 +38,10 @@ export const GEMINI_CONFIG = {
   CONTENT_TEMPERATURE: 0.5,
   /** 최대 출력 토큰 수 */
   MAX_OUTPUT_TOKENS: 8192,
-  /** 기본 모델 (무료 티어 — 분당 15회, 일일 1,500회) */
-  DEFAULT_MODEL: 'gemini-2.0-flash',
-  /** 복잡한 분석용 모델 */
-  ADVANCED_MODEL: 'gemini-2.5-flash',
+  /** 기본 모델 */
+  DEFAULT_MODEL: 'gemini-2.5-flash',
+  /** 폴백 모델 목록 (기본 모델 429 시 순차 시도) */
+  FALLBACK_MODELS: ['gemini-2.0-flash', 'gemini-2.5-flash-lite-preview-06-17'] as string[],
 } as const;
 
 /** 6단계 학습 시스템 정보 */
@@ -103,5 +103,5 @@ export const UI_TEXT = {
   ERROR_GENERIC: '문제가 발생했어요. 다시 시도해주세요.',
   ERROR_FILE_TOO_LARGE: '파일 크기가 10MB를 초과했어요.',
   ERROR_UNSUPPORTED_FILE: '지원하지 않는 파일 형식이에요.',
-  ERROR_API_FAILED: 'AI 분석에 실패했어요. 잠시 후 다시 시도해주세요.',
+  ERROR_API_FAILED: 'AI 분석에 실패했어요. API 할당량이 소진됐을 수 있어요. 잠시 후 다시 시도해주세요.',
 } as const;
