@@ -16,9 +16,10 @@ import type { ProjectFile } from '@/types/project';
  * @returns { owner, repo } 또는 파싱 실패 시 null
  */
 export function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/github\.com\/([^/]+)\/([^/\s#?]+)/);
+  if (url.length > 300) return null;
+  const match = url.match(/^https?:\/\/github\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.-]+?)(?:\.git)?(?:[/#?].*)?$/);
   if (!match) return null;
-  return { owner: match[1], repo: match[2].replace(/\.git$/, '') };
+  return { owner: match[1], repo: match[2] };
 }
 
 /**
